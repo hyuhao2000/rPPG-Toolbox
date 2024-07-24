@@ -88,8 +88,9 @@ class BaseLoader(Dataset):
 
     def __getitem__(self, index):
         """Returns a clip of video(3,T,W,H) and it's corresponding signals(T)."""
-        data = np.load(self.inputs[index])
-        label = np.load(self.labels[index])
+        data = np.load(self.inputs[index])['arr_0']
+        label = np.load(self.labels[index])['arr_0']
+        
         if self.data_format == 'NDCHW':
             data = np.transpose(data, (0, 3, 1, 2))
         elif self.data_format == 'NCDHW':
@@ -430,12 +431,12 @@ class BaseLoader(Dataset):
         count = 0
         for i in range(len(bvps_clips)):
             assert (len(self.inputs) == len(self.labels))
-            input_path_name = self.cached_path + os.sep + "{0}_input{1}.npy".format(filename, str(count))
-            label_path_name = self.cached_path + os.sep + "{0}_label{1}.npy".format(filename, str(count))
+            input_path_name = self.cached_path + os.sep + "{0}_input{1}.npz".format(filename, str(count))
+            label_path_name = self.cached_path + os.sep + "{0}_label{1}.npz".format(filename, str(count))
             self.inputs.append(input_path_name)
             self.labels.append(label_path_name)
-            np.save(input_path_name, frames_clips[i])
-            np.save(label_path_name, bvps_clips[i])
+            np.savez_compressed(input_path_name, frames_clips[i])
+            np.savez_compressed(label_path_name, bvps_clips[i])
             count += 1
         return count
 
@@ -457,12 +458,12 @@ class BaseLoader(Dataset):
         label_path_name_list = []
         for i in range(len(bvps_clips)):
             assert (len(self.inputs) == len(self.labels))
-            input_path_name = self.cached_path + os.sep + "{0}_input{1}.npy".format(filename, str(count))
-            label_path_name = self.cached_path + os.sep + "{0}_label{1}.npy".format(filename, str(count))
+            input_path_name = self.cached_path + os.sep + "{0}_input{1}.npz".format(filename, str(count))
+            label_path_name = self.cached_path + os.sep + "{0}_label{1}.npz".format(filename, str(count))
             input_path_name_list.append(input_path_name)
             label_path_name_list.append(label_path_name)
-            np.save(input_path_name, frames_clips[i])
-            np.save(label_path_name, bvps_clips[i])
+            np.savez_compressed(input_path_name, frames_clips[i])
+            np.savez_compressed(label_path_name, bvps_clips[i])
             count += 1
         return input_path_name_list, label_path_name_list
 
@@ -559,7 +560,7 @@ class BaseLoader(Dataset):
         # generate a list of all preprocessed / chunked data files
         file_list = []
         for fname in filename_list:
-            processed_file_data = list(glob.glob(self.cached_path + os.sep + "{0}_input*.npy".format(fname)))
+            processed_file_data = list(glob.glob(self.cached_path + os.sep + "{0}_input*.npz".format(fname)))
             file_list += processed_file_data
 
         if not file_list:

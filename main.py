@@ -29,6 +29,37 @@ train_generator = torch.Generator()
 train_generator.manual_seed(RANDOM_SEED)
 
 
+class MultiEpochsDataLoader(torch.utils.data.DataLoader):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._DataLoader__initialized = False
+        self.batch_sampler = _RepeatSampler(self.batch_sampler)
+        self._DataLoader__initialized = True
+        self.iterator = super().__iter__()
+
+    def __len__(self):
+        return len(self.batch_sampler.sampler)
+
+    def __iter__(self):
+        for i in range(len(self)):
+            yield next(self.iterator)
+
+
+class _RepeatSampler(object):
+    """ Sampler that repeats forever.
+    Args:
+        sampler (Sampler)
+    """
+
+    def __init__(self, sampler):
+        self.sampler = sampler
+
+    def __iter__(self):
+        while True:
+            yield from iter(self.sampler)
+
+
 def seed_worker(worker_id):
     worker_seed = torch.initial_seed() % 2 ** 32
     np.random.seed(worker_seed)
@@ -38,7 +69,7 @@ def seed_worker(worker_id):
 def add_args(parser):
     """Adds arguments for parser."""
     parser.add_argument('--config_file', required=False,
-                        default="configs/train_configs/PURE_PURE_UBFC-rPPG_TSCAN_BASIC.yaml", type=str, help="The name of the model.")
+                        default="./configs/train_configs/PUREroi_PUREroi_PUREroi_TSCAN_BASIC.yaml", type=str, help="The name of the model.")
     '''Neural Method Sample YAML LIST:
       SCAMPS_SCAMPS_UBFC-rPPG_TSCAN_BASIC.yaml
       SCAMPS_SCAMPS_UBFC-rPPG_DEEPPHYS_BASIC.yaml
@@ -77,7 +108,10 @@ def train_and_test(config, data_loader_dict):
         model_trainer = trainer.BigSmallTrainer.BigSmallTrainer(config, data_loader_dict)
     elif config.MODEL.NAME == 'PhysFormer':
         model_trainer = trainer.PhysFormerTrainer.PhysFormerTrainer(config, data_loader_dict)
+    elif config.MODEL.NAME == 'Rwkv':
+        model_trainer = trainer.RwkvTrainer.RwkvTrainer(config, data_loader_dict)
     else:
+
         raise ValueError('Your Model is Not Supported  Yet!')
     model_trainer.train(data_loader_dict)
     model_trainer.test(data_loader_dict)
@@ -99,6 +133,8 @@ def test(config, data_loader_dict):
         model_trainer = trainer.BigSmallTrainer.BigSmallTrainer(config, data_loader_dict)
     elif config.MODEL.NAME == 'PhysFormer':
         model_trainer = trainer.PhysFormerTrainer.PhysFormerTrainer(config, data_loader_dict)
+    elif config.MODEL.NAME == 'Rwkv':
+        model_trainer = trainer.RwkvTrainer.RwkvTrainer(config, data_loader_dict)
     else:
         raise ValueError('Your Model is Not Supported  Yet!')
     model_trainer.test(data_loader_dict)
@@ -158,6 +194,10 @@ if __name__ == "__main__":
             train_loader = data_loader.UBFCPHYSLoader.UBFCPHYSLoader
         elif config.TRAIN.DATA.DATASET == "iBVP":
             train_loader = data_loader.iBVPLoader.iBVPLoader
+        elif config.TRAIN.DATA.DATASET == "PUREroi":
+            train_loader = data_loader.PUREroiLoader.PUREroiLoader
+        elif config.TRAIN.DATA.DATASET == "UBFC-rPPGroi":
+            train_loader = data_loader.UBFCrPPGroiLoader.UBFCrPPGroiLoader
         else:
             raise ValueError("Unsupported dataset! Currently supporting UBFC-rPPG, PURE, MMPD, \
                              SCAMPS, BP4D+ (Normal and BigSmall preprocessing), UBFC-PHYS and iBVP.")
@@ -170,12 +210,14 @@ if __name__ == "__main__":
                 name="train",
                 data_path=config.TRAIN.DATA.DATA_PATH,
                 config_data=config.TRAIN.DATA)
-            data_loader_dict['train'] = DataLoader(
+            data_loader_dict['train'] = MultiEpochsDataLoader(
                 dataset=train_data_loader,
-                num_workers=16,
+                num_workers=2,
                 batch_size=config.TRAIN.BATCH_SIZE,
                 shuffle=True,
                 worker_init_fn=seed_worker,
+                pin_memory=True,
+                persistent_workers=True,
                 generator=train_generator
             )
         else:
@@ -198,6 +240,10 @@ if __name__ == "__main__":
             valid_loader = data_loader.UBFCPHYSLoader.UBFCPHYSLoader
         elif config.VALID.DATA.DATASET == "iBVP":
             valid_loader = data_loader.iBVPLoader.iBVPLoader
+        elif config.TRAIN.DATA.DATASET == "PUREroi":
+            valid_loader = data_loader.PUREroiLoader.PUREroiLoader
+        elif config.TRAIN.DATA.DATASET == "UBFC-rPPGroi":
+            valid_loader = data_loader.UBFCrPPGroiLoader.UBFCrPPGroiLoader
         elif config.VALID.DATA.DATASET is None and not config.TEST.USE_LAST_EPOCH:
             raise ValueError("Validation dataset not specified despite USE_LAST_EPOCH set to False!")
         else:
@@ -211,12 +257,14 @@ if __name__ == "__main__":
                 name="valid",
                 data_path=config.VALID.DATA.DATA_PATH,
                 config_data=config.VALID.DATA)
-            data_loader_dict["valid"] = DataLoader(
+            data_loader_dict["valid"] = MultiEpochsDataLoader(
                 dataset=valid_data,
-                num_workers=16,
+                num_workers=2,
                 batch_size=config.TRAIN.BATCH_SIZE,  # batch size for val is the same as train
                 shuffle=False,
                 worker_init_fn=seed_worker,
+                pin_memory=True,
+                persistent_workers=True,
                 generator=general_generator
             )
         else:
@@ -240,6 +288,10 @@ if __name__ == "__main__":
             test_loader = data_loader.UBFCPHYSLoader.UBFCPHYSLoader
         elif config.TEST.DATA.DATASET == "iBVP":
             test_loader = data_loader.iBVPLoader.iBVPLoader
+        elif config.TRAIN.DATA.DATASET == "PUREroi":
+            test_loader = data_loader.PUREroiLoader.PUREroiLoader
+        elif config.TRAIN.DATA.DATASET == "UBFC-rPPGroi":
+            test_loader = data_loader.UBFCrPPGroiLoader.UBFCrPPGroiLoader
         else:
             raise ValueError("Unsupported dataset! Currently supporting UBFC-rPPG, PURE, MMPD, \
                              SCAMPS, BP4D+ (Normal and BigSmall preprocessing), UBFC-PHYS and iBVP.")
@@ -254,12 +306,14 @@ if __name__ == "__main__":
                 name="test",
                 data_path=config.TEST.DATA.DATA_PATH,
                 config_data=config.TEST.DATA)
-            data_loader_dict["test"] = DataLoader(
+            data_loader_dict["test"] = MultiEpochsDataLoader(
                 dataset=test_data,
-                num_workers=16,
+                num_workers=2,
                 batch_size=config.INFERENCE.BATCH_SIZE,
                 shuffle=False,
                 worker_init_fn=seed_worker,
+                pin_memory=True,
+                persistent_workers=True,
                 generator=general_generator
             )
         else:
@@ -281,6 +335,10 @@ if __name__ == "__main__":
             unsupervised_loader = data_loader.UBFCPHYSLoader.UBFCPHYSLoader
         elif config.UNSUPERVISED.DATA.DATASET == "iBVP":
             unsupervised_loader = data_loader.iBVPLoader.iBVPLoader
+        # elif config.TRAIN.DATA.DATASET == "PUREroi":
+        #     unsupervised_loader = data_loader.PUREroiLoader.PUREroiLoader
+        # elif config.TRAIN.DATA.DATASET == "UBFCrPPGroi":
+        #     unsupervised_loader = data_loader.UBFCrPPGroiLoader.UBFCrPPGroiLoader
         else:
             raise ValueError("Unsupported dataset! Currently supporting UBFC-rPPG, PURE, MMPD, \
                              SCAMPS, BP4D+, UBFC-PHYS and iBVP.")
@@ -289,12 +347,14 @@ if __name__ == "__main__":
             name="unsupervised",
             data_path=config.UNSUPERVISED.DATA.DATA_PATH,
             config_data=config.UNSUPERVISED.DATA)
-        data_loader_dict["unsupervised"] = DataLoader(
+        data_loader_dict["unsupervised"] = MultiEpochsDataLoader(
             dataset=unsupervised_data,
-            num_workers=16,
+            num_workers=2,
             batch_size=1,
             shuffle=False,
             worker_init_fn=seed_worker,
+            pin_memory=True,
+            persistent_workers=True,
             generator=general_generator
         )
 

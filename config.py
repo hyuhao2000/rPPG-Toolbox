@@ -324,6 +324,19 @@ _C.MODEL.PHYSFORMER.NUM_LAYERS = 12
 _C.MODEL.PHYSFORMER.THETA = 0.7
 
 # -----------------------------------------------------------------------------
+# Model Settings for Rwkv
+# -----------------------------------------------------------------------------
+_C.MODEL.RWKV = CN()
+_C.MODEL.RWKV.CTX_LEN = 180
+_C.MODEL.RWKV.DROPOUT = 0.2
+_C.MODEL.RWKV.RWKV_EMB_SCALE = 0
+_C.MODEL.RWKV.N_LAYER = 1
+_C.MODEL.RWKV.N_HEAD = 2
+_C.MODEL.RWKV.N_EMBD = 5184
+_C.MODEL.RWKV.N_ATTN = 2048
+_C.MODEL.RWKV.N_FFN = 1024
+
+# -----------------------------------------------------------------------------
 # Inference settings
 # -----------------------------------------------------------------------------
 _C.INFERENCE = CN()
