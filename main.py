@@ -110,6 +110,10 @@ def train_and_test(config, data_loader_dict):
         model_trainer = trainer.PhysFormerTrainer.PhysFormerTrainer(config, data_loader_dict)
     elif config.MODEL.NAME == 'Rwkv':
         model_trainer = trainer.RwkvTrainer.RwkvTrainer(config, data_loader_dict)
+    elif config.MODEL.NAME == 'Rnn':
+        model_trainer = trainer.RnnTrainer.RnnTrainer(config, data_loader_dict)
+    elif config.MODEL.NAME == 'Mamba':
+        model_trainer = trainer.MambaTrainer.MambaTrainer(config, data_loader_dict)
     else:
 
         raise ValueError('Your Model is Not Supported  Yet!')
@@ -135,6 +139,10 @@ def test(config, data_loader_dict):
         model_trainer = trainer.PhysFormerTrainer.PhysFormerTrainer(config, data_loader_dict)
     elif config.MODEL.NAME == 'Rwkv':
         model_trainer = trainer.RwkvTrainer.RwkvTrainer(config, data_loader_dict)
+    elif config.MODEL.NAME == 'Rnn':
+        model_trainer = trainer.RnnTrainer.RnnTrainer(config, data_loader_dict)
+    elif config.MODEL.NAME == 'Mamba':
+        model_trainer = trainer.MambaTrainer.MambaTrainer(config, data_loader_dict)
     else:
         raise ValueError('Your Model is Not Supported  Yet!')
     model_trainer.test(data_loader_dict)
@@ -240,9 +248,9 @@ if __name__ == "__main__":
             valid_loader = data_loader.UBFCPHYSLoader.UBFCPHYSLoader
         elif config.VALID.DATA.DATASET == "iBVP":
             valid_loader = data_loader.iBVPLoader.iBVPLoader
-        elif config.TRAIN.DATA.DATASET == "PUREroi":
+        elif config.VALID.DATA.DATASET == "PUREroi":
             valid_loader = data_loader.PUREroiLoader.PUREroiLoader
-        elif config.TRAIN.DATA.DATASET == "UBFC-rPPGroi":
+        elif config.VALID.DATA.DATASET == "UBFC-rPPGroi":
             valid_loader = data_loader.UBFCrPPGroiLoader.UBFCrPPGroiLoader
         elif config.VALID.DATA.DATASET is None and not config.TEST.USE_LAST_EPOCH:
             raise ValueError("Validation dataset not specified despite USE_LAST_EPOCH set to False!")
@@ -288,9 +296,9 @@ if __name__ == "__main__":
             test_loader = data_loader.UBFCPHYSLoader.UBFCPHYSLoader
         elif config.TEST.DATA.DATASET == "iBVP":
             test_loader = data_loader.iBVPLoader.iBVPLoader
-        elif config.TRAIN.DATA.DATASET == "PUREroi":
+        elif config.TEST.DATA.DATASET == "PUREroi":
             test_loader = data_loader.PUREroiLoader.PUREroiLoader
-        elif config.TRAIN.DATA.DATASET == "UBFC-rPPGroi":
+        elif config.TEST.DATA.DATASET == "UBFC-rPPGroi":
             test_loader = data_loader.UBFCrPPGroiLoader.UBFCrPPGroiLoader
         else:
             raise ValueError("Unsupported dataset! Currently supporting UBFC-rPPG, PURE, MMPD, \

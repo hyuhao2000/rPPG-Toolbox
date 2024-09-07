@@ -337,6 +337,24 @@ _C.MODEL.RWKV.N_ATTN = 2048
 _C.MODEL.RWKV.N_FFN = 1024
 
 # -----------------------------------------------------------------------------
+# Model Settings for Rnn
+# -----------------------------------------------------------------------------
+_C.MODEL.RNN = CN()
+_C.MODEL.RNN.DROPOUT = 0.2
+_C.MODEL.RNN.INPUT_SIZE = 1024
+_C.MODEL.RNN.HIDDEN_SIZE = 1024
+_C.MODEL.RNN.N_LAYER = 2
+
+# -----------------------------------------------------------------------------
+# Model Settings for Mamba
+# -----------------------------------------------------------------------------
+_C.MODEL.MAMBA = CN()
+_C.MODEL.MAMBA.DROPOUT = 0.2
+_C.MODEL.MAMBA.V_SIZE = 1
+_C.MODEL.MAMBA.D_MODEL = 189
+_C.MODEL.MAMBA.N_LAYER = 2
+
+# -----------------------------------------------------------------------------
 # Inference settings
 # -----------------------------------------------------------------------------
 _C.INFERENCE = CN()
@@ -393,7 +411,7 @@ def update_config(config, args):
 
     if config.TRAIN.DATA.EXP_DATA_NAME == '':
         config.TRAIN.DATA.EXP_DATA_NAME = "_".join([config.TRAIN.DATA.DATASET, "SizeW{0}".format(
-            str(config.TRAIN.DATA.PREPROCESS.RESIZE.W)), "SizeH{0}".format(str(config.TRAIN.DATA.PREPROCESS.RESIZE.W)), "ClipLength{0}".format(
+            str(config.TRAIN.DATA.PREPROCESS.RESIZE.W)), "SizeH{0}".format(str(config.TRAIN.DATA.PREPROCESS.RESIZE.H)), "ClipLength{0}".format(
             str(config.TRAIN.DATA.PREPROCESS.CHUNK_LENGTH)), "DataType{0}".format("_".join(config.TRAIN.DATA.PREPROCESS.DATA_TYPE)),
                                       "DataAug{0}".format("_".join(config.TRAIN.DATA.PREPROCESS.DATA_AUG)),
                                       "LabelType{0}".format(config.TRAIN.DATA.PREPROCESS.LABEL_TYPE),
@@ -429,7 +447,7 @@ def update_config(config, args):
 
         if config.VALID.DATA.EXP_DATA_NAME == '':
             config.VALID.DATA.EXP_DATA_NAME = "_".join([config.VALID.DATA.DATASET, "SizeW{0}".format(
-                str(config.VALID.DATA.PREPROCESS.RESIZE.W)), "SizeH{0}".format(str(config.VALID.DATA.PREPROCESS.RESIZE.W)), "ClipLength{0}".format(
+                str(config.VALID.DATA.PREPROCESS.RESIZE.W)), "SizeH{0}".format(str(config.VALID.DATA.PREPROCESS.RESIZE.H)), "ClipLength{0}".format(
                 str(config.VALID.DATA.PREPROCESS.CHUNK_LENGTH)), "DataType{0}".format("_".join(config.VALID.DATA.PREPROCESS.DATA_TYPE)),
                                         "DataAug{0}".format("_".join(config.VALID.DATA.PREPROCESS.DATA_AUG)),
                                         "LabelType{0}".format(config.VALID.DATA.PREPROCESS.LABEL_TYPE),
@@ -535,7 +553,7 @@ def update_config(config, args):
 
     if config.UNSUPERVISED.DATA.EXP_DATA_NAME == '':
         config.UNSUPERVISED.DATA.EXP_DATA_NAME = "_".join([config.UNSUPERVISED.DATA.DATASET, "SizeW{0}".format(
-            str(config.UNSUPERVISED.DATA.PREPROCESS.RESIZE.W)), "SizeH{0}".format(str(config.UNSUPERVISED.DATA.PREPROCESS.RESIZE.W)), "ClipLength{0}".format(
+            str(config.UNSUPERVISED.DATA.PREPROCESS.RESIZE.W)), "SizeH{0}".format(str(config.UNSUPERVISED.DATA.PREPROCESS.RESIZE.H)), "ClipLength{0}".format(
             str(config.UNSUPERVISED.DATA.PREPROCESS.CHUNK_LENGTH)), "DataType{0}".format("_".join(config.UNSUPERVISED.DATA.PREPROCESS.DATA_TYPE)),
                                       "DataAug{0}".format("_".join(config.UNSUPERVISED.DATA.PREPROCESS.DATA_AUG)),
                                       "LabelType{0}".format(config.UNSUPERVISED.DATA.PREPROCESS.LABEL_TYPE),

@@ -7,3 +7,5 @@ import neural_methods.trainer.EfficientPhysTrainer
 import neural_methods.trainer.BigSmallTrainer
 import neural_methods.trainer.PhysFormerTrainer
 import neural_methods.trainer.RwkvTrainer
+import neural_methods.trainer.RnnTrainer
+import neural_methods.trainer.MambaTrainer

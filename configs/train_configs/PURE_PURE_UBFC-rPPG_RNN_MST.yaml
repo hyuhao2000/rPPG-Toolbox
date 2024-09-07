@@ -1,27 +1,27 @@
 BASE: ['']
 TOOLBOX_MODE: "train_and_test"      # "train_and_test"  or "only_test"
 TRAIN:
-  BATCH_SIZE: 4
-  EPOCHS: 30
-  LR: 9e-3
-  MODEL_FILE_NAME: BP4D_BP4D_physnet_diffnormalized
+  BATCH_SIZE: 8
+  EPOCHS: 150
+  LR: 1e-4
+  MODEL_FILE_NAME: PURE_PURE_UBFC_rwkv_roi
   PLOT_LOSSES_AND_LR: True
   DATA:
-    FS: 25
-    DATASET: BP4DPlus
+    FS: 30
+    DATASET: PUREroi
     DO_PREPROCESS: False               # if first time, should be true
-    DATA_FORMAT: NCDHW
-    DATA_PATH: "/gscratch/ubicomp/xliu0/data3/mnt/Datasets/BP4DPlus/RawData"  
-    CACHED_PATH: "/gscratch/ubicomp/xliu0/data3/mnt/Datasets/rppg_toolbox/PreprocessedData"    # Processed dataset save path, need to be updated
+    DATA_FORMAT: NDCHW
+    DATA_PATH: "F:/datasets/PURE" # Raw dataset path, need to be updated
+    CACHED_PATH: "F:/datasets/puremst"    # Processed dataset save path, need to be updated
     EXP_DATA_NAME: ""
     BEGIN: 0.0
     END: 0.8
-    PREPROCESS :
-      USE_PSUEDO_PPG_LABEL: True
-      DATA_TYPE: ['DiffNormalized']
+    PREPROCESS:
+      DATA_TYPE: ['DiffNormalized','Standardized']
+      DATA_AUG: ['None']    # 'None' or 'Motion' is supported, used if the data path points to an augmented dataset or requires augmentation
       LABEL_TYPE: DiffNormalized
       DO_CHUNK: True
-      CHUNK_LENGTH: 128
+      CHUNK_LENGTH: 180
       CROP_FACE:
         DO_CROP_FACE: True
         BACKEND: 'HC'    # HC for Haar Cascade, RF for RetinaFace
@@ -29,28 +29,28 @@ TRAIN:
         LARGE_BOX_COEF: 1.5
         DETECTION:
           DO_DYNAMIC_DETECTION: False
-          DYNAMIC_DETECTION_FREQUENCY : 32
+          DYNAMIC_DETECTION_FREQUENCY: 30
           USE_MEDIAN_FACE_BOX: False    # This should be used ONLY if dynamic detection is used
       RESIZE:
         H: 72
         W: 72
 VALID:
   DATA:
-    FS: 25
-    DATASET: BP4DPlus
+    FS: 30
+    DATASET: PUREroi
     DO_PREPROCESS: False                  # if first time, should be true
-    DATA_FORMAT: NCDHW
-    DATA_PATH: "/gscratch/ubicomp/xliu0/data3/mnt/Datasets/BP4DPlus/RawData"  
-    CACHED_PATH: "/gscratch/ubicomp/xliu0/data3/mnt/Datasets/rppg_toolbox/PreprocessedData"    # Processed dataset save path, need to be updated
+    DATA_FORMAT: NDCHW
+    DATA_PATH: "F:/datasets/PURE" # Raw dataset path, need to be updated
+    CACHED_PATH: "F:/datasets/puremst"    # Processed dataset save path, need to be updated
     EXP_DATA_NAME: ""
     BEGIN: 0.8
     END: 1.0
     PREPROCESS:
-      USE_PSUEDO_PPG_LABEL: True
-      DATA_TYPE: ['DiffNormalized']
+      DATA_TYPE: [ 'DiffNormalized','Standardized' ]
+      DATA_AUG: ['None']    # 'None' or 'Motion' is supported, used if the data path points to an augmented dataset or requires augmentation
       LABEL_TYPE: DiffNormalized
       DO_CHUNK: True
-      CHUNK_LENGTH: 128
+      CHUNK_LENGTH: 180
       CROP_FACE:
         DO_CROP_FACE: True
         BACKEND: 'HC'    # HC for Haar Cascade, RF for RetinaFace
@@ -58,29 +58,29 @@ VALID:
         LARGE_BOX_COEF: 1.5
         DETECTION:
           DO_DYNAMIC_DETECTION: False
-          DYNAMIC_DETECTION_FREQUENCY : 32
+          DYNAMIC_DETECTION_FREQUENCY : 30
           USE_MEDIAN_FACE_BOX: False    # This should be used ONLY if dynamic detection is used
       RESIZE:
         H: 72
         W: 72
 TEST:
   METRICS: ['MAE', 'RMSE', 'MAPE', 'Pearson', 'SNR', 'BA']
-  USE_LAST_EPOCH: True                      # to use provided validation dataset to find the best epoch, should be false
+  USE_LAST_EPOCH: False                      # to use provided validation dataset to find the best epoch, should be false
   DATA:
     FS: 30
-    DATASET: PURE
-    DO_PREPROCESS: False               # if first time, should be true
-    DATA_FORMAT: NCDHW
-    DATA_PATH: "/gscratch/ubicomp/xliu0/data3/mnt/Datasets/PURE/RawData"                     # Raw dataset path, need to be updated
-    CACHED_PATH: "/gscratch/ubicomp/xliu0/data3/mnt/Datasets/rppg_toolbox/PreprocessedData"    # Processed dataset save path, need to be updated
+    DATASET: UBFC-rPPGroi
+    DO_PREPROCESS: False                    # if first time, should be true
+    DATA_FORMAT: NDCHW
+    DATA_PATH: "F:/datasets/UBFC_DATASET/DATASET_2" # Raw dataset path, need to be updated
+    CACHED_PATH: "F:/datasets/UBFC_DATASET/DATASET_2_cache_mst"    # Processed dataset save path, need to be updated
     EXP_DATA_NAME: ""
     BEGIN: 0.0
     END: 1.0
     PREPROCESS:
-      DATA_TYPE: ['DiffNormalized']
+      DATA_TYPE: [ 'DiffNormalized','Standardized' ]
       LABEL_TYPE: DiffNormalized
       DO_CHUNK: True
-      CHUNK_LENGTH: 128
+      CHUNK_LENGTH: 180
       CROP_FACE:
         DO_CROP_FACE: True
         BACKEND: 'HC'    # HC for Haar Cascade, RF for RetinaFace
@@ -88,24 +88,31 @@ TEST:
         LARGE_BOX_COEF: 1.5
         DETECTION:
           DO_DYNAMIC_DETECTION: False
-          DYNAMIC_DETECTION_FREQUENCY : 32
+          DYNAMIC_DETECTION_FREQUENCY: 30
           USE_MEDIAN_FACE_BOX: False    # This should be used ONLY if dynamic detection is used
       RESIZE:
         H: 72
         W: 72
-DEVICE: cuda:0
+DEVICE: cuda:1
 NUM_OF_GPU_TRAIN: 1
 LOG:
   PATH: runs/exp
 MODEL:
-  DROP_RATE: 0.2
-  NAME: Physnet
-  PHYSNET:
-    FRAME_NUM: 128
+  NAME: Rwkv
+  RWKV:
+    CTX_LEN: 180
+    DROPOUT: 0.1
+    RWKV_EMB_SCALE: 0
+    N_LAYER: 2
+    N_HEAD: 2
+    N_EMBD: 756
+    N_ATTN: 1024
+    N_FFN: 1024
+
 INFERENCE:
   BATCH_SIZE: 4
   EVALUATION_METHOD: "FFT"        # "FFT" or "peak detection"
   EVALUATION_WINDOW:
     USE_SMALLER_WINDOW: False        # Change this if you'd like an evaluation window smaller than the test video length
     WINDOW_SIZE: 10        # In seconds
-  MODEL_PATH: ""
+  MODEL_PATH:   ""

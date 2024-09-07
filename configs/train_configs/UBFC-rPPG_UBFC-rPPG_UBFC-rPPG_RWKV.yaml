@@ -1,9 +1,9 @@
 BASE: ['']
 TOOLBOX_MODE: "train_and_test"      # "train_and_test"  or "only_test"
 TRAIN:
-  BATCH_SIZE: 8
+  BATCH_SIZE: 1
   EPOCHS: 50
-  LR: 1e-4
+  LR: 5e-4
   MODEL_FILE_NAME: UBFC_UBFC_UBFC_rwkv
   PLOT_LOSSES_AND_LR: True
   DATA:
@@ -104,8 +104,8 @@ MODEL:
     CTX_LEN: 180
     DROPOUT: 0.2
     RWKV_EMB_SCALE: 0
-    N_LAYER: 1
-    N_HEAD: 2
+    N_LAYER: 2
+    N_HEAD: 4
     N_EMBD: 5184
     N_ATTN: 2048
     N_FFN: 1024

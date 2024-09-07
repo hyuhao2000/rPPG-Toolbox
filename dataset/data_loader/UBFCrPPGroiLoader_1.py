@@ -15,7 +15,7 @@ from dataset.data_loader.BaseLoader import BaseLoader
 from tqdm import tqdm
 import dlib
 from concurrent.futures import ThreadPoolExecutor
-import itertools
+
 class UBFCrPPGroiLoader(BaseLoader):
     """The data loader for the UBFC-rPPG dataset."""
 
@@ -89,7 +89,7 @@ class UBFCrPPGroiLoader(BaseLoader):
             bvps = self.read_wave(
                 os.path.join(data_dirs[i]['path'],"ground_truth.txt"))
             
-        dlibFacePredictor = 'F:/code/rPPG-Toolbox/shape_predictor_81_face_landmarks.dat'
+        dlibFacePredictor = 'E:/code/pure/shape_predictor_81_face_landmarks.dat'
         detector = dlib.get_frontal_face_detector()  #使用dlib自带的frontal_face_detector作为我们的人脸提取器
         predictor = dlib.shape_predictor(dlibFacePredictor) 
 
@@ -131,21 +131,15 @@ class UBFCrPPGroiLoader(BaseLoader):
     def roi_preprocess(frames,bvps,config_preprocess,detector,predictor):
         # Check data transformation type
         data = list()  # Video data
-        mst_maps = list()  # ROI data
+        rois = list()  # ROI data
 
         for frame in frames:
-            mst_map=UBFCrPPGroiLoader.get_landmark(frame, config_preprocess,detector, predictor)
-           
-            if len(mst_map)==0:  
-                continue
-            
-            mst_maps.append(mst_map)
-
-        mst_maps=np.array(mst_maps)
-
+            roi=UBFCrPPGroiLoader.get_landmark(frame, config_preprocess,detector, predictor,need='forehead')
+            rois.append(roi)
+        rois=np.array(rois)
         for data_type in config_preprocess.DATA_TYPE:
-            f_c = mst_maps.copy()
-            # print(f_c[0])
+            # print(rois.shape)
+            f_c = rois.copy()
             if data_type == "Raw":
                 data.append(f_c)
             elif data_type == "DiffNormalized":
@@ -174,96 +168,44 @@ class UBFCrPPGroiLoader(BaseLoader):
         return frames_clips, bvps_clips
     
     @staticmethod
-    def get_landmark(frame,config_preprocess,detector,predictor):
+    def get_landmark(frame,config_preprocess,detector,predictor,need):
 
-            # print(region)
-        def create_mask_and_extract_region(frame, pts):
-            mask = np.zeros_like(frame, dtype=np.uint8)
-            cv2.fillConvexPoly(mask, pts, (255, 255, 255))
-            region = cv2.bitwise_and(frame, mask)
-            bbox = cv2.boundingRect(pts)
-            crop = region[bbox[1]:bbox[1]+bbox[3], bbox[0]:bbox[0]+bbox[2]]
-            return region, crop
+        dets = detector(frame, 0) #使用detector进行人脸检测 dets为返回的结果
 
-        dets = detector(frame, 0) # 使用detector进行人脸检测 dets为返回的结果
-        
-        if len(dets) == 0:
-            print('No face detected in')
-            return []
-        
-        else:
-            crops = []
-            for d in dets:
-                shape = predictor(frame, d) # 使用predictor进行人脸关键点识别
-                landmarks = np.matrix([[p.x, p.y] for p in shape.parts()])
+        for d in dets:
+            shape = predictor(frame, d) #使用predictor进行人脸关键点识别
+            landmarks = np.matrix([[p.x, p.y] for p in shape.parts()])
 
-                regions = {
-                    "forehead": landmarks[[18, 19, 20, 23, 24, 25, 79, 80, 70, 75], :],
-                    "left_up_cheek": landmarks[[1, 2, 3, 31, 28], :],
-                    "left_down_cheek": landmarks[[3, 4, 5, 48, 31], :],
-                    "right_up_cheek": landmarks[[13, 14, 15, 28, 35], :],
-                    "right_down_cheek": landmarks[[11, 12, 13, 35, 54], :],
-                    "jaw": landmarks[[5, 6, 7, 8, 9, 10, 11, 54, 55, 56, 57, 58, 59, 60, 48], :]
-                }
+            # Define regions based on landmarks
+            if need == 'forehead':
+                forehead_pts = landmarks[[18,19, 20, 23, 24,25,79,80,70,75], :]  # Forehead region
+                forehead_mask = np.zeros_like(frame, dtype=np.uint8)
+                cv2.fillConvexPoly(forehead_mask, forehead_pts, (255, 255, 255))
+                forehead_region = cv2.bitwise_and(frame, forehead_mask)
+                forehead_bbox = cv2.boundingRect(forehead_pts)
+                forehead_crop = forehead_region[forehead_bbox[1]:forehead_bbox[1]+forehead_bbox[3],
+                                                forehead_bbox[0]:forehead_bbox[0]+forehead_bbox[2]]
+                forehead_crop = cv2.resize(forehead_crop, (config_preprocess.RESIZE.W, config_preprocess.RESIZE.H))
+                return forehead_crop
 
-                for region in ['forehead','left_up_cheek','left_down_cheek','right_up_cheek','right_down_cheek','jaw']:
-                    pts = regions[region]
-                    region_img, crop = create_mask_and_extract_region(frame, pts)
-                    if crop.size == 0:
-                        print('Error:', region)
-                        continue
-                    else:
-                        b,g,r = cv2.split(crop)
-                        #去除0值后取平均值
-                        b = b[b>0].mean()
-                        g = g[g>0].mean()
-                        r = r[r>0].mean()
-                        crops.append([b,g,r])
-                        # Y,U,V = cv2.split(cv2.cvtColor(crop, cv2.COLOR_BGR2YUV))
-                        # Y = Y[Y>0].mean()
-                        # U = U[U>0].mean()
-                        # V = V[V>0].mean()
+            if need == 'left_cheek':
+                left_cheek_pts = landmarks[[1, 2, 3, 4, 48, 31, 28], :]  # Left cheek region
+                left_cheek_mask = np.zeros_like(frame, dtype=np.uint8)
+                cv2.fillConvexPoly(left_cheek_mask, left_cheek_pts, (255, 255, 255))
+                left_cheek_region = cv2.bitwise_and(frame, left_cheek_mask)
+                left_cheek_bbox = cv2.boundingRect(left_cheek_pts)
+                left_cheek_crop = left_cheek_region[left_cheek_bbox[1]:left_cheek_bbox[1]+left_cheek_bbox[3],
+                                                    left_cheek_bbox[0]:left_cheek_bbox[0]+left_cheek_bbox[2]]
+                left_cheek_crop = cv2.resize(left_cheek_crop, (config_preprocess.RESIZE.W, config_preprocess.RESIZE.H))
+                return left_cheek_crop
 
-                        # crops.append([b,g,r,Y,U,V])
-            #if len(crops)<6 repeat the last roi for 6-n times
-            while len(crops)<6:
-                crops.append(crops[-1]) 
-            mst_map = UBFCrPPGroiLoader.generate_combinations(np.array(crops))
-
-        return mst_map
-
-    @staticmethod
-    def generate_combinations(array):
-        """
-        对输入形状为 (n, C) 的数组的第二维度进行排列组合，生成所有非空子集的组合，
-        并对每个组合的第三维的对应值取平均。
-        
-        参数:
-        array (numpy.ndarray): 输入的三维数组，形状为 (n, C)
-        
-        返回:
-        list: 包含所有组合平均后的数组列表，每个数组的形状为 (2^n-1, C)
-        """
-        n, C = array.shape
-
-        # 生成所有非空子集的索引组合
-        indices = range(n)
-        all_combinations = []
-        for r in range(1, n + 1):
-            combinations = list(itertools.combinations(indices, r))
-            all_combinations.extend(combinations)
-
-        # print(all_combinations)
-        # 计算每个组合的平均值
-        all_combinations_avg = []
-        for combination in all_combinations:
-            combination_avg = array[combination, :]
-            combination_avg = np.mean(combination_avg, axis=0)
-            # print(combination_avg.shape)
-            all_combinations_avg.append(combination_avg)
-
-        all_combinations_avg = np.array(all_combinations_avg)
-        #numpy add a dimension
-        all_combinations_avg = np.expand_dims(all_combinations_avg, axis=0)
-        # print(all_combinations_avg.shape)
-        return all_combinations_avg
+            if need == 'right_cheek':
+                right_cheek_pts = landmarks[[15, 14, 13, 12, 54, 35, 28], :]  # Right cheek region         
+                right_cheek_mask = np.zeros_like(frame, dtype=np.uint8)
+                cv2.fillConvexPoly(right_cheek_mask, right_cheek_pts, (255, 255, 255))
+                right_cheek_region = cv2.bitwise_and(frame, right_cheek_mask)
+                right_cheek_bbox = cv2.boundingRect(right_cheek_pts)
+                right_cheek_crop = right_cheek_region[right_cheek_bbox[1]:right_cheek_bbox[1]+right_cheek_bbox[3],
+                                                    right_cheek_bbox[0]:right_cheek_bbox[0]+right_cheek_bbox[2]]
+                right_cheek_crop = cv2.resize(right_cheek_crop, (config_preprocess.RESIZE.W, config_preprocess.RESIZE.H))
+                return right_cheek_crop

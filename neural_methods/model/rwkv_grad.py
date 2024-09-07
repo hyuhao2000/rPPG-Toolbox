@@ -41,7 +41,7 @@ def RWKV_Init(module, config): # fancy initialization of all lin & emb layer in 
             if hasattr(m, 'scale_init'):
                 scale = m.scale_init
 
-            print(str(shape[0]).ljust(5), str(shape[1]).ljust(5), f'{round(scale,2):g}'.ljust(4), name)
+            # print(str(shape[0]).ljust(5), str(shape[1]).ljust(5), f'{round(scale,2):g}'.ljust(4), name)
 
             gain *= scale
             if gain == 0:
@@ -88,43 +88,84 @@ class RWKV_TimeMix(nn.Module):
         self.output = nn.Linear(config.n_attn, config.n_embd)
         self.dropout = nn.Dropout(config.dropout)
 
-        self.key.scale_init = 0
-        self.receptance.scale_init = 0
-        self.output.scale_init = 0
+        # self.key.scale_init = 0
+        # self.receptance.scale_init = 0
+        # self.output.scale_init = 0
 
     def forward(self, x):
-        B, T, C = x.size()
-        TT = self.ctx_len
-        w = F.pad(self.time_w, (0, TT))
-        w = torch.tile(w, [TT])
-        w = w[:, :-TT].reshape(-1, TT, 2 * TT - 1)
-        w = w[:, :, TT-1:] # w is now a circulant matrix
-        w = w[:, :T, :T] * self.time_alpha[:, :, :T] * self.time_beta[:, :T, :]
+        # print(x[0][0][0])
+        # print('time mixing')
+        # print('time_alpha:',self.time_alpha.shape)
+        # print('time_beta:',self.time_beta.shape)
+        # print('time_gamma:',self.time_gamma.shape)
 
+        B, T, C = x.size()
+        # print('B:',B,'T:',T,'C:',C)
+        TT = self.ctx_len
+        # print('TT:',TT)
+        w = F.pad(self.time_w, (0, TT))
+        # print('w:',w.shape)
+        w = torch.tile(w, [TT])
+        # print('w:',w.shape)
+        w = w[:, :-TT].reshape(-1, TT, 2 * TT - 1)
+        # print('w:',w.shape)
+        w = w[:, :, TT-1:] # w is now a circulant matrix
+        # print('w:',w.shape)
+        w = w[:, :T, :T] * self.time_alpha[:, :, :T] * self.time_beta[:, :T, :]
+        # print('w:',w.shape)
         x = torch.cat([self.time_shift(x[:, :, :C//2]), x[:, :, C//2:]], dim = -1)
+        # print('x:',x.shape)
         # if hasattr(self, 'tiny_att'):
         #     tiny_att = self.tiny_att(x, self.mask)
 
         k = self.key(x)
         v = self.value(x)
         r = self.receptance(x)
-
+        # print('k:',k.shape)
+        # print('v:',v.shape)
+        # print('r:',r.shape)
         k = torch.clamp(k, max=30, min=-60) # clamp extreme values. e^30 = 10^13
+        # print('k:',k.shape) 
         k = torch.exp(k)
+        # print('k:',k.shape)
         sum_k = torch.cumsum(k, dim=1)
-
+        # print('sum_k:',sum_k.shape)
         kv = (k * v).view(B, T, self.n_head, self.head_size)
-
+        # print('kv:',kv.shape)
         wkv = (torch.einsum('htu,buhc->bthc', w, kv)).contiguous().view(B, T, -1)
-
+        # print('wkv:',wkv.shape)
         rwkv = torch.sigmoid(r) * wkv / sum_k
-
+        # print('rwkv:',rwkv.shape)
         rwkv = self.output(rwkv)
+        # print('rwkv:',rwkv.shape)
+
+        #mean
+        mean = torch.mean(rwkv, dim=2)
+        # print('mean:',mean.shape)
+        # print('mean:',mean)
+        grad = mean[:, 1:] - mean[:, :-1]
+        # print('grad:',grad.shape)
+        extend = torch.cat((grad, grad[:, -1:]), dim=1)
+        #负数变正
+        extend = torch.abs(extend)
+        # print('extend:',extend.shape)
+        # print('extend:',extend)
+        min_val, max_val = extend.min(), extend.max()
+        # 归一化到 [0, 1] 之间
+        normalized_grad = (extend - min_val) / (max_val - min_val)
+        # 缩放到 [0.1, 0.2] 之间
+        scaled_grad = normalized_grad * 0.1 + 0.1
+        #取倒数
+        scaled_grad = (1 / scaled_grad)/10
+        # print('scaled_grad:',scaled_grad.shape)
+        # print('scaled_grad:',scaled_grad)
+        # rwkv = rwkv * scaled_grad.unsqueeze(2)
         rwkv = self.dropout(rwkv)
+        # print('rwkv:',rwkv.shape)
         # if hasattr(self, 'tiny_att'):
         #     rwkv += tiny_att
 
-        return rwkv * self.time_gamma[:T, :]
+        return rwkv * self.time_gamma[:T, :],scaled_grad
 
 class RWKV_ChannelMix(nn.Module):
     def __init__(self, config, layer_id):
@@ -139,21 +180,30 @@ class RWKV_ChannelMix(nn.Module):
         self.receptance = nn.Linear(config.n_embd, config.n_embd)
         self.dropout = nn.Dropout(config.dropout)
 
-        self.receptance.scale_init = 0
-        self.weight.scale_init = 0
+        # self.receptance.scale_init = 0
+        # self.weight.scale_init = 0
 
-    def forward(self, x):
+    def forward(self, x, scaled_grad):
+        # print('channel mixing')
+
         B, T, C = x.size()
+        # print('B:',B,'T:',T,'C:',C)
         
         x = torch.cat([self.time_shift(x[:, :, :C//2]), x[:, :, C//2:]], dim = -1)
+        # print('x:',x.shape)
         k = self.key(x)
         v = self.value(x)
         r = self.receptance(x)
-        
+        # print('k:',k.shape)
+        # print('v:',v.shape)
+        # print('r:',r.shape)
         wkv = self.weight(F.mish(k) * v) # i find mish is a bit better than gelu
-
+        # print('wkv:',wkv.shape)
         rwkv = torch.sigmoid(r) * wkv
+        # print('rwkv:',rwkv.shape)
+        rwkv = rwkv * scaled_grad.unsqueeze(2)
         rwkv = self.dropout(rwkv)
+        # print('rwkv:',rwkv.shape)
 
         return rwkv
 
@@ -204,9 +254,10 @@ class Block(nn.Module):
 
 
     def forward(self, x):
-
-        x = x + self.attn(self.ln1(x))
-        x = x + self.mlp(self.ln2(x))
+        
+        tm, scaled_grad = self.attn(self.ln1(x))
+        x = x + tm
+        x = x + self.mlp(self.ln2(x),scaled_grad)
         
         return x
 
@@ -278,14 +329,21 @@ class Rwkv(nn.Module):
 
     def forward(self, x):
         
-        B ,T, N, A, C = x.shape
-        # print(x.shape)
-        x = x.squeeze(3)
-        #change to B,T,N*C
-        x = x.view(B, T, N*C)
-        # x = x[:,:,5,:]
-        # print(x.shape)
-
+        B, T, C, H, W = x.shape
+        # print('x:',x.shape)
+        x = x.permute(0, 2, 1, 3, 4)
+        # print('x:',x.shape)
+        x = self.conv(x)
+        # print('x:',x.shape)
+        x = self.conv2(x)
+        # print('x:',x.shape)
+        x = x.squeeze(1)
+        # print('x:',x.shape)
+        
+        x = x.view(B, T, -1)
+    
+        # print('x: ',x.shape)
+        
         assert T <= self.ctx_len, "Cannot forward, because len(input) > model ctx_len."
 
         x = self.encoder(x)
@@ -308,10 +366,11 @@ if __name__ == '__main__':
     config = RwkvConfig(ctx_len=180,dropout=0,
                 rwkv_emb_scale=0, 
                 n_layer=1, n_head=4, 
-                n_embd=63*3, 
-                n_attn=256, n_ffn=256)
+                n_embd=72*72, 
+                n_attn=4096, n_ffn=1024)
     model = Rwkv(config)
     # print(model)
-    x = torch.randn(1, 180, 63, 3)
+    x = torch.randn(1, 180, 6, 72, 72)
+
     y = model(x)
-    print(y.shape)
+    # print(y.shape)

@@ -11,8 +11,8 @@ TRAIN:
     DATASET: UBFC-rPPGroi
     DO_PREPROCESS: True               # if first time, should be true
     DATA_FORMAT: NDCHW
-  DATA_PATH: "F:/datasets/UBFC_DATASET/DATASET_2" # Raw dataset path, need to be updated
-  CACHED_PATH: "F:/datasets/UBFC_DATASET/DATASET_2_cache"    # Processed dataset save path, need to be updated
+    DATA_PATH: "F:/datasets/UBFC_DATASET/DATASET_2" # Raw dataset path, need to be updated
+    ACHED_PATH: "F:/datasets/UBFC_DATASET/DATASET_2_cache"    # Processed dataset save path, need to be updated
     EXP_DATA_NAME: ""
     BEGIN: 0.0
     END: 0.8
