@@ -92,6 +92,9 @@ class Mamba(nn.Module):
         x = x.squeeze(3)
         #change to B,T,N*C
         x = x.view(B, T, N*C)
+        
+        print('original x shape:',x.shape)
+
         # 遍历所有的残差块，并应用它们
         for layer in self.layers:
             x = layer(x)
@@ -248,9 +251,11 @@ class MambaBlock(nn.Module):
         (b, l, d) = x.shape # 获取输入x的维度
         # 应用输入线性变换
         x_and_res = self.in_proj(x)  # shape (b, l, 2 * d_in)
+        print('x_and_res shape:',x_and_res.shape)
         # 将变换后的输出分为两部分x和res。
         # 得到的x分为两个部分，一部分x继续用于后续变换，生成所需要的参数，res用于残差部分
         (x, res) = x_and_res.split(split_size=[self.args.d_inner, self.args.d_inner], dim=-1)
+        print('x shape:',x.shape)
         # 调整x的形状
         x = rearrange(x, 'b l d_in -> b d_in l')
         # 应用深度卷积，然后截取前l个输出
@@ -290,7 +295,7 @@ class MambaBlock(nn.Module):
         #  self.A_log = nn.Parameter(torch.log(A))
         # （args.d_inner, args.d_state）
         (d_in, n) = self.A_log.shape # 获取A_log的维度
-
+        print('A_log shape:',self.A_log.shape)
         # 计算 ∆ A B C D, 这些属于状态空间参数.
         #     A, D 是 与输入无关的 (见Mamba论文Section 3.5.2 "Interpretation of A" for why A isn't selective)
         #     ∆, B, C 与输入有关(这是与线性是不变模型S4最大的不同,
@@ -300,7 +305,7 @@ class MambaBlock(nn.Module):
         A = -torch.exp(self.A_log.float())  # shape (d_in, n)
         # 取D的值
         D = self.D.float()
-
+        print('D shape:',D.shape)
         # 应用x的投影变换
         # ( b,l,d_in) -> (b, l, dt_rank + 2*n)
         x_dbl = self.x_proj(x)  # (b, l, dt_rank + 2*n)
@@ -308,8 +313,12 @@ class MambaBlock(nn.Module):
         # 分割delta, B, C
         # delta: (b, l, dt_rank). B, C: (b, l, n)
         (delta, B, C) = x_dbl.split(split_size=[self.args.dt_rank, n, n], dim=-1)
+        print('delta shape:',delta.shape)
+        print('B shape:',B.shape)
+        print('C shape:',C.shape)
         # 应用dt_proj并计算delta
         delta = F.softplus(self.dt_proj(delta))  # (b, l, d_in)
+        print('after dt_proj, delta shape:',delta.shape)
         # 应用选择性扫描算法
         y = self.selective_scan(x, delta, A, B, C, D)
         return y
@@ -346,6 +355,7 @@ class MambaBlock(nn.Module):
         """
         # 获取输入u的维度
         (b, l, d_in) = u.shape
+        print('u shape:',u.shape)
         # 获取矩阵A的列数
         n = A.shape[1]  #  A: shape (d_in, n)
         
@@ -359,14 +369,16 @@ class MambaBlock(nn.Module):
         # A:(d_in, n),delta:(b, l, d_in)
         # A广播拓展->(b,l,d_in, n)，deltaA对应原论文中的A_bar
         deltaA = torch.exp(einsum(delta, A, 'b l d_in, d_in n -> b l d_in n'))
+        print('deltaA shape:',deltaA.shape)
         # delta、B和u,这个计算和原始论文不同
         deltaB_u = einsum(delta, B, u, 'b l d_in, b l n, b l d_in -> b l d_in n')
-        
+        print('deltaB_u shape:',deltaB_u.shape)
         # Perform selective scan (see scan_SSM() in The Annotated S4 [2])
         # Note that the below is sequential, while the official implementation does a much faster parallel scan that
         # is additionally hardware-aware (like FlashAttention).
         # 执行选择性扫描,初始化状态x为零
         x = torch.zeros((b, d_in, n), device=deltaA.device)
+        print('state x shape:',x.shape)
         # 初始化输出列表ys
         ys = []    
         for i in range(l):
@@ -383,7 +395,7 @@ class MambaBlock(nn.Module):
         y = torch.stack(ys, dim=1)  # shape (b, l, d_in)
         # 将输入u乘以D并加到输出y上
         y = y + u * D
-    
+        print('y shape:',y.shape)
         return y
 
 
@@ -420,11 +432,10 @@ class RMSNorm(nn.Module):
 #main
 if __name__ == '__main__':
     # 创建一个ModelArgs对象，包含模型的配置参数
-    args = ModelArgs(d_model=189, n_layer=2, vocab_size=1)
+    args = ModelArgs(d_model=189, n_layer=1, vocab_size=1)
     # 创建一个Mamba模型
     model = Mamba(args)
-    x = torch.randn(1, 180, 63, 1,3)
-    y = model(x)
+    x = torch.randn(1, 180, 63, 1, 3)
     logits = model(x)
     # 打印输出张量的形状
     print(logits.shape)
